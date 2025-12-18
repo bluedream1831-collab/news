@@ -2,7 +2,6 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { GeneratedArticle, NewsItem } from "../types";
 
-// Added LITE_2_5 to fix compilation errors in components/ModelInfoModal.tsx
 export const MODELS = {
   PRO_3: "gemini-3-pro-preview",
   FLASH_3: "gemini-3-flash-preview",
@@ -13,8 +12,9 @@ export const MODELS = {
 };
 
 const getAIClient = () => {
+  // 嘗試從 process.env 獲取變數
   const apiKey = process.env.API_KEY;
-  // 檢查是否為空字串、undefined 或是字串型態的 "undefined"
+  
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
     throw new Error("API_KEY_MISSING");
   }
@@ -23,6 +23,7 @@ const getAIClient = () => {
 
 const extractJson = (text: string | undefined): any => {
   if (!text) return null;
+  // 移除 Markdown 標籤並嘗試解析
   const cleaned = text.replace(/```json\n?|```/g, '').trim();
   try {
     return JSON.parse(cleaned);
@@ -40,12 +41,14 @@ export const getTrendingTopics = async (model: string = MODELS.FLASH_3): Promise
     const ai = getAIClient();
     const resp = await ai.models.generateContent({
       model: model,
-      contents: "列出目前台灣最熱門的 8 個關鍵字。回傳格式：[\"A\", \"B\"]",
+      contents: "列出目前台灣最熱門的 8 個關鍵字。直接回傳 JSON 陣列，例如：[\"關鍵字1\", \"關鍵字2\"]",
       config: { tools: [{ googleSearch: {} }] }
     });
     return extractJson(resp.text) || [];
   } catch (err: any) {
-    if (err.message === "API_KEY_MISSING") throw new Error("環境變數 API_KEY 缺失。請在 Vercel 設定後點擊 Redeploy。");
+    if (err.message === "API_KEY_MISSING") {
+      throw new Error("系統偵測不到 API_KEY。請確保您已在 Vercel 設定環境變數並執行了最新的 Redeploy。");
+    }
     throw err;
   }
 };
@@ -60,7 +63,7 @@ export const searchNews = async (topic: string, model: string = MODELS.FLASH_3):
     const ai = getAIClient();
     const resp = await ai.models.generateContent({
       model: model,
-      contents: `搜尋「${topic}」的最新新聞，回傳 JSON 陣列含 title, snippet, source, time, link。`,
+      contents: `搜尋「${topic}」的最新新聞，回傳 JSON 陣列，包含欄位：title, snippet, source, time, link。`,
       config: { tools: [{ googleSearch: {} }] }
     });
 
@@ -72,20 +75,19 @@ export const searchNews = async (topic: string, model: string = MODELS.FLASH_3):
 
     return { news: Array.isArray(news) ? news : [], sources };
   } catch (err: any) {
-    if (err.message === "API_KEY_MISSING") throw new Error("環境變數 API_KEY 缺失。請在 Vercel 設定後點擊 Redeploy。");
+    if (err.message === "API_KEY_MISSING") throw new Error("API 金鑰缺失，請重新部署專案。");
     throw err;
   }
 };
 
 export const generateBilingualContent = async (input: string, style: string, modelType: string): Promise<GeneratedArticle> => {
   const ai = getAIClient();
-  // Fixed: Use direct string for contents and ensure systemInstruction is in config
   const response = await ai.models.generateContent({
     model: modelType,
     contents: `Original Material: ${input}`,
     config: {
       responseMimeType: "application/json",
-      systemInstruction: `You are an expert bilingual content creator. Style: ${style}. Return detailed English and Chinese versions in JSON.`,
+      systemInstruction: `你是一位精通 SEO 與社群經營的編輯。根據提供素材生成 ${style} 風格的雙語內容。必須包含英文 Blogger SEO 封裝與繁體中文社群封裝（Threads, IG, 方格子）。`,
       temperature: 0.7,
     }
   });
