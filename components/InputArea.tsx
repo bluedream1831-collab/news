@@ -83,7 +83,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
         setNewsResults(news);
         setGroundingSources(sources);
       } else {
-        setErrorMessage(`「${targetTopic}」目前搜尋不到相關新聞 JSON。但已為您找到參考網頁連結。`);
+        setErrorMessage(`「${targetTopic}」目前搜尋不到相關新聞數據，但已為您找到參考網頁連結。`);
         setGroundingSources(sources);
       }
     } catch (e: any) {
@@ -112,8 +112,9 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
           <p className="text-sm text-slate-500">輸入關鍵字或點擊熱搜，獲取即時創作素材。</p>
         </div>
         <div className="flex bg-stone-100 p-1 rounded-xl shrink-0">
-           <button onClick={() => setSearchModel(MODELS.FLASH_3)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${searchModel === MODELS.FLASH_3 ? 'bg-white text-indigo-600 shadow-sm' : 'text-stone-400'}`}>FLASH 3</button>
+           <button onClick={() => setSearchModel(MODELS.FLASH_3)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${searchModel === MODELS.FLASH_3 ? 'bg-white text-indigo-600 shadow-sm' : 'text-stone-400'}`}>3 FLASH</button>
            <button onClick={() => setSearchModel(MODELS.FLASH_2_5)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${searchModel === MODELS.FLASH_2_5 ? 'bg-white text-blue-600 shadow-sm' : 'text-stone-400'}`}>V2.5</button>
+           <button onClick={() => setSearchModel(MODELS.FLASH_2_0)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${searchModel === MODELS.FLASH_2_0 ? 'bg-white text-cyan-600 shadow-sm' : 'text-stone-400'}`}>2.0</button>
         </div>
       </div>
 
@@ -144,8 +145,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
       {/* Results / Error Area */}
       {errorMessage && (
         <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-bold">
-          ⚠️ 錯誤：{errorMessage}
-          {errorMessage.includes("API_KEY") && <p className="mt-2 text-[10px] text-red-400">提示：如果您剛設定完變數，請在 Vercel 專案頁面點擊 "Redeploy"。</p>}
+          ⚠️ 狀態：{errorMessage}
         </div>
       )}
 

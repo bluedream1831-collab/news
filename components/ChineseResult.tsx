@@ -9,6 +9,19 @@ interface ChineseResultProps {
 const ChineseResult: React.FC<ChineseResultProps> = ({ data }) => {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
 
+  // 核心修復：如果 data 為 undefined，顯示錯誤狀態而非崩潰
+  if (!data) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl p-8 text-center font-chinese">
+        <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        </div>
+        <h3 className="text-slate-800 font-bold mb-2">繁體中文內容解析失敗</h3>
+        <p className="text-slate-500 text-sm">AI 未能正確輸出繁體中文部分，這可能是因為素材內容過於簡短或格式異常。請嘗試更換模型或調整素材後重新生成。</p>
+      </div>
+    );
+  }
+
   // UI-level Emoji Formatter (Clean Style)
   const formatEmojiContent = (text: string) => {
     if (!text) return "";
@@ -112,18 +125,18 @@ const ChineseResult: React.FC<ChineseResultProps> = ({ data }) => {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>
             部落格/方格子文章
           </h3>
-          <button onClick={() => copyToClipboard(data.content.markdownBody + "\n\n" + data.content.callToAction, 'body')} className="text-xs font-semibold bg-white border border-slate-300 hover:border-rose-500 hover:text-rose-600 px-3 py-1.5 rounded transition-colors flex items-center gap-1">
+          <button onClick={() => copyToClipboard((data.content?.markdownBody || "") + "\n\n" + (data.content?.callToAction || ""), 'body')} className="text-xs font-semibold bg-white border border-slate-300 hover:border-rose-500 hover:text-rose-600 px-3 py-1.5 rounded transition-colors flex items-center gap-1">
             {copiedSection === 'body' ? '已複製' : '複製全文明細'}
           </button>
         </div>
         <div className="p-4 sm:p-6">
           <div className="prose prose-slate max-w-none text-slate-700 font-chinese whitespace-pre-wrap leading-relaxed text-sm sm:text-base">
-            {renderWithLinksAndEmoji(data.content.markdownBody)}
+            {renderWithLinksAndEmoji(data.content?.markdownBody || "")}
           </div>
           <div className="mt-8 pt-6 border-t border-slate-100">
              <div className="bg-rose-50 p-4 rounded-lg border border-rose-100">
                 <span className="block text-xs font-bold text-rose-400 uppercase tracking-wider mb-2">🚀 行動呼籲 (CTA)</span>
-                <p className="text-rose-600 font-bold text-sm sm:text-base">{formatEmojiContent(data.content.callToAction)}</p>
+                <p className="text-rose-600 font-bold text-sm sm:text-base">{formatEmojiContent(data.content?.callToAction || "")}</p>
              </div>
           </div>
         </div>
@@ -182,13 +195,13 @@ const ChineseResult: React.FC<ChineseResultProps> = ({ data }) => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" /></svg>
                 Instagram 貼文文案
              </h3>
-             <button onClick={() => copyToClipboard(data.content.instagramCaption || '', 'ig_caption')} className="text-xs font-semibold bg-white border border-purple-200 hover:border-purple-400 hover:text-purple-700 px-3 py-1.5 rounded transition-colors">
+             <button onClick={() => copyToClipboard(data.content?.instagramCaption || '', 'ig_caption')} className="text-xs font-semibold bg-white border border-purple-200 hover:border-purple-400 hover:text-purple-700 px-3 py-1.5 rounded transition-colors">
                 {copiedSection === 'ig_caption' ? '已複製!' : '複製文案'}
              </button>
          </div>
          <div className="p-4 sm:p-6">
              <div className="text-sm sm:text-base text-slate-700 whitespace-pre-wrap leading-relaxed font-chinese">
-                {renderWithLinksAndEmoji(data.content.instagramCaption)}
+                {renderWithLinksAndEmoji(data.content?.instagramCaption || "")}
              </div>
          </div>
       </div>

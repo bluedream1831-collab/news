@@ -41,13 +41,13 @@ export const getTrendingTopics = async (model: string = MODELS.FLASH_3): Promise
     const ai = getAIClient();
     const resp = await ai.models.generateContent({
       model: model,
-      contents: "列出目前台灣最熱門的 8 個關鍵字。直接回傳 JSON 陣列，例如：[\"關鍵字1\", \"關鍵字2\"]",
+      contents: "列出目前台灣最熱門的 8 個關鍵字。直接回傳 JSON 陣列字串，格式如：[\"關鍵字1\", \"關鍵字2\"]",
       config: { tools: [{ googleSearch: {} }] }
     });
     return extractJson(resp.text) || [];
   } catch (err: any) {
     if (err.message === "API_KEY_MISSING") {
-      throw new Error("系統偵測不到 API_KEY。請確保您已在 Vercel 設定環境變數並執行了最新的 Redeploy。");
+      throw new Error("環境變數 API_KEY 缺失。請在 Vercel 設定後點擊 Redeploy。");
     }
     throw err;
   }
@@ -63,7 +63,7 @@ export const searchNews = async (topic: string, model: string = MODELS.FLASH_3):
     const ai = getAIClient();
     const resp = await ai.models.generateContent({
       model: model,
-      contents: `搜尋「${topic}」的最新新聞，回傳 JSON 陣列，包含欄位：title, snippet, source, time, link。`,
+      contents: `搜尋關於「${topic}」的最新新聞資訊。回傳格式必須為 JSON 陣列，每個物件包含：title, snippet, source, time, link。`,
       config: { tools: [{ googleSearch: {} }] }
     });
 
@@ -87,12 +87,42 @@ export const generateBilingualContent = async (input: string, style: string, mod
     contents: `Original Material: ${input}`,
     config: {
       responseMimeType: "application/json",
-      systemInstruction: `你是一位精通 SEO 與社群經營的編輯。根據提供素材生成 ${style} 風格的雙語內容。必須包含英文 Blogger SEO 封裝與繁體中文社群封裝（Threads, IG, 方格子）。`,
-      temperature: 0.7,
+      systemInstruction: `你是一位精通 SEO 與多平台社群經營的資深編輯。
+風格設定：${style}。
+請根據提供的素材生成雙語內容。
+
+⚡️強制規範：
+1. 豐富 Emoji：在所有生成內容中，必須根據語境嵌入大量且生動的 Emoji，增加吸引力。
+2. 禁止粗體語法：嚴禁在任何輸出的文字中使用 Markdown 的雙星號粗體標記（禁止出現 ** 符號）。若需強調重點，請使用 Emoji 或直接換行。
+3. 繁體中文規範：所有內容均需使用台灣常用的繁體中文術語。
+4. HTML 規範：在 fullHtml 欄位中，僅使用 <h2>, <h3>, <p>, <ul>, <li> 等結構化標籤，嚴禁使用 <strong> 或 <b> 標籤。
+
+輸出格式必須嚴格遵守以下 JSON 結構：
+{
+  "english": {
+    "seoStrategy": { "permalinkSlug": "", "searchDescription": "", "labels": [] },
+    "visualInstructions": { "imagePrompt": "", "imageAltText": "" },
+    "articleContent": { "h1Title": "", "fullHtml": "" },
+    "operatingSuggestions": { "longTailKeywords": [], "internalLinkTip": "", "trafficGrowthTip": "" }
+  },
+  "chinese": {
+    "titleStrategies": { "intuitive": "", "suspense": "", "benefit": "" },
+    "content": { "style": "", "markdownBody": "", "callToAction": "", "instagramQuote": "", "instagramCaption": "" },
+    "threadsPost": { "hook": "", "content": "", "cta": "", "tags": "" },
+    "visualInstructions": { "imagePrompt": "", "imageAltText": "", "quoteImagePrompt": "", "storyImagePrompt": "" },
+    "operatingSuggestions": { "vocusCollection": "", "interactionQuestion": "", "crossPromotionTip": "" }
+  }
+}`,
+      temperature: 0.8,
     }
   });
   
   const article = extractJson(response.text) as GeneratedArticle;
+  
+  if (!article || !article.english || !article.chinese) {
+    throw new Error("AI 回傳的資料格式不完整，請嘗試縮減素材長度或更換模型重新生成。");
+  }
+
   return {
     ...article,
     metadata: {
