@@ -17,15 +17,38 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [currentInputText, setCurrentInputText] = useState("");
+  const [hasKey, setHasKey] = useState<boolean>(true); // 預設為 true 以避免 Flash 模型閃爍
   
   const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('gen_history');
     if (savedHistory) setHistory(JSON.parse(savedHistory));
+
+    // 檢查是否有選取 API Key
+    const checkKey = async () => {
+      if (window.aistudio) {
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setHasKey(selected);
+      }
+    };
+    checkKey();
   }, []);
 
+  const handleOpenKeySelector = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      setHasKey(true); // 觸發後假設成功以進入應用
+    }
+  };
+
   const handleGenerate = async (text: string, style: string) => {
+    // 如果是 Pro 模型且沒金鑰，先攔截
+    if (selectedModel === MODELS.PRO_3 && !hasKey) {
+      setError("使用 Pro 模型需要先選取付費 API 金鑰。");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setGeneratedData(null);
@@ -49,7 +72,13 @@ const App: React.FC = () => {
 
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
     } catch (err: any) {
-      setError(err.message || "內容生成發生異常。");
+      // 處理實體未找到的錯誤 (通常與金鑰無效有關)
+      if (err.message && err.message.includes("Requested entity was not found")) {
+        setHasKey(false);
+        setError("API 金鑰驗證失敗，請重新選取有效的付費專案金鑰。");
+      } else {
+        setError(err.message || "內容生成發生異常。");
+      }
     } finally {
       setLoading(false);
     }
@@ -73,6 +102,29 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F7F5] relative">
       <ModelInfoModal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} />
+
+      {/* API Key Required Overlay */}
+      {!hasKey && (
+        <div className="fixed inset-0 z-[100] bg-[#050A14]/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border border-stone-100">
+            <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 mb-3">需要選取 API 金鑰</h2>
+            <p className="text-slate-500 mb-8 leading-relaxed">
+              為了確保 Pro 模型的高效運作，請選取一個已啟用結算的 Google Cloud 專案金鑰。
+              <br/>
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold underline">瞭解結算說明</a>
+            </p>
+            <button 
+              onClick={handleOpenKeySelector}
+              className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+            >
+              選取付費 API 金鑰
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* History Sidebar */}
       <div className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] transform transition-transform duration-300 border-l border-stone-100 flex flex-col ${isHistoryOpen ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -107,7 +159,7 @@ const App: React.FC = () => {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
                 <div className="h-9 w-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><span className="text-white font-black text-xl">B</span></div>
-                <h1 className="text-white font-bold hidden sm:block tracking-tight">雙語文章生成器 <span className="text-indigo-400 ml-1 opacity-60 text-xs">V2.0</span></h1>
+                <h1 className="text-white font-bold hidden sm:block tracking-tight">雙語文章生成器 <span className="text-indigo-400 ml-1 opacity-60 text-xs">V2.1</span></h1>
             </div>
             
             <div className="bg-slate-900/80 p-1 rounded-2xl flex items-center gap-1 border border-slate-800">
@@ -144,7 +196,6 @@ const App: React.FC = () => {
 
           {generatedData && (
             <div className="space-y-6">
-              {/* Result Meta & Tabs */}
               <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-5 rounded-2xl border border-stone-200 shadow-sm gap-5">
                   <div className="flex bg-stone-100 p-1 rounded-xl w-full sm:w-auto">
                     <button onClick={() => setActiveTab('chinese')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'chinese' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}>繁中 社群貼文</button>
@@ -172,7 +223,7 @@ const App: React.FC = () => {
       
       <footer className="py-10 text-center border-t border-stone-200 mt-10">
          <p className="text-stone-400 text-xs font-bold tracking-widest uppercase">Powered by Gemini AI Engine & Search Grounding</p>
-         <p className="text-stone-300 text-[10px] mt-2 italic">© 2025 Bilingual Content Architect V2.0</p>
+         <p className="text-stone-300 text-[10px] mt-2 italic">© 2025 Bilingual Content Architect V2.1</p>
       </footer>
     </div>
   );

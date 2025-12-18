@@ -70,18 +70,23 @@ export interface NewsItem {
   link?: string;
 }
 
-export enum ContentCategory {
-  TECH = 'Technology',
-  HISTORY = 'History',
-  INVESTMENT = 'Investment',
-  INSURANCE = 'Insurance',
-  OTHER = 'General'
-}
-
 export interface HistoryItem {
   id: string;
   title: string;
   timestamp: number;
   modelUsed: string;
   data: GeneratedArticle;
+}
+
+// 解決 TypeScript 找不到 aistudio 的問題
+// Fix: Defining AIStudio interface to match the expected global type name and modifiers.
+export interface AIStudio {
+  hasSelectedApiKey: () => Promise<boolean>;
+  openSelectKey: () => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    aistudio: AIStudio;
+  }
 }
