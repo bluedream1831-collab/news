@@ -78,15 +78,21 @@ export interface HistoryItem {
   data: GeneratedArticle;
 }
 
-// 解決 TypeScript 找不到 aistudio 的問題
-// Fix: Defining AIStudio interface to match the expected global type name and modifiers.
+// Fix: Move AIStudio out of declare global so it's a local declaration that can be exported.
+// This resolves "Cannot export 'AIStudio'. Only local declarations can be exported from a module."
 export interface AIStudio {
   hasSelectedApiKey: () => Promise<boolean>;
   openSelectKey: () => Promise<void>;
 }
 
+// Augmenting global Window interface.
 declare global {
   interface Window {
-    aistudio: AIStudio;
+    // Fix: Using the optional modifier to prevent "All declarations of 'aistudio' must have identical modifiers"
+    // if a global declaration already exists in the environment (e.g., provided by the platform bridge).
+    aistudio?: AIStudio;
   }
 }
+
+// 為了保持向後相容，我們也導出它
+export type { AIStudio as AIStudioType };

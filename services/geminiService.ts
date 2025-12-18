@@ -113,19 +113,20 @@ const ARTICLE_RESPONSE_SCHEMA = {
   required: ["english", "chinese"]
 };
 
-// Fix: Enhanced extractJson to accurately handle both JSON objects and arrays within text responses
 const extractJson = (text: string | undefined): any => {
   if (!text) return null;
+  // 先嘗試移除 markdown 代碼塊標記
   const cleaned = text.replace(/```json\n?|```/g, '').trim();
   try {
     return JSON.parse(cleaned);
   } catch {
+    // 如果失敗，嘗試用正則表達式抓取第一個 [ ] 或 { } 結構
     const jsonMatch = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
     if (jsonMatch) { 
       try { 
         return JSON.parse(jsonMatch[0]); 
       } catch (e) {
-        console.error("Manual JSON extraction failed", e);
+        console.warn("JSON manual extraction failed", e);
       } 
     }
   }
@@ -174,7 +175,6 @@ export const generateBilingualContent = async (input: string, style: string, mod
     temperature: 0.7,
   };
 
-  // Fix: Applying thinkingConfig correctly for supported model series
   if (modelType === MODELS.PRO_3) {
     config.thinkingConfig = { thinkingBudget: 32768 };
   } else if (modelType === MODELS.FLASH_2_5 || modelType === MODELS.FLASH_3) {
