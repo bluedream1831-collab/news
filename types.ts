@@ -78,21 +78,17 @@ export interface HistoryItem {
   data: GeneratedArticle;
 }
 
-// Fix: Move AIStudio out of declare global so it's a local declaration that can be exported.
-// This resolves "Cannot export 'AIStudio'. Only local declarations can be exported from a module."
-export interface AIStudio {
-  hasSelectedApiKey: () => Promise<boolean>;
-  openSelectKey: () => Promise<void>;
-}
-
-// Augmenting global Window interface.
+// 核心修復：將介面直接定義在全域空間中
 declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
   interface Window {
-    // Fix: Using the optional modifier to prevent "All declarations of 'aistudio' must have identical modifiers"
-    // if a global declaration already exists in the environment (e.g., provided by the platform bridge).
     aistudio?: AIStudio;
   }
 }
 
-// 為了保持向後相容，我們也導出它
-export type { AIStudio as AIStudioType };
+// 為了讓其他檔案能 import，我們保留一個 export，但主要的型別已經在 global 了
+export interface AIStudioExport extends AIStudio {}

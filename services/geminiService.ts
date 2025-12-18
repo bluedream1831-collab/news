@@ -11,6 +11,15 @@ export const MODELS = {
   IMAGE_GEN: "gemini-2.5-flash-image"
 };
 
+// 輔助函式：確保有 API Key
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === "undefined") {
+    throw new Error("API_KEY_MISSING");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 const ARTICLE_RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -115,12 +124,10 @@ const ARTICLE_RESPONSE_SCHEMA = {
 
 const extractJson = (text: string | undefined): any => {
   if (!text) return null;
-  // 先嘗試移除 markdown 代碼塊標記
   const cleaned = text.replace(/```json\n?|```/g, '').trim();
   try {
     return JSON.parse(cleaned);
   } catch {
-    // 如果失敗，嘗試用正則表達式抓取第一個 [ ] 或 { } 結構
     const jsonMatch = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
     if (jsonMatch) { 
       try { 
@@ -134,29 +141,57 @@ const extractJson = (text: string | undefined): any => {
 };
 
 export const getTrendingTopics = async (model: string = MODELS.FLASH_3): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const resp = await ai.models.generateContent({
-    model: model,
-    contents: "列出目前台灣最熱門的 8 個搜尋趨勢關鍵字。請回傳純 JSON 陣列格式。",
-    config: { tools: [{ googleSearch: {} }] }
-  });
-  return extractJson(resp.text) || [];
+  try {
+    const ai = getAIClient();
+    const resp = await ai.models.generateContent({
+      model: model,
+      contents: "列出目前台灣最熱門的 8 個搜尋趨勢關鍵字。請回傳純 JSON 陣列格式，例如 [\"關鍵字1\", \"關鍵字2\"]。",
+      config: { tools: [{ googleSearch: {} }] }
+    });
+    return extractJson(resp.text) || [];
+  } catch (err: any) {
+    if (err.message === "API_KEY_MISSING") throw new Error("請先在 Vercel 設定 API_KEY 環境變數。");
+    throw err;
+  }
 };
 
-export const searchNews = async (topic: string, model: string = MODELS.FLASH_3): Promise<NewsItem[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const resp = await ai.models.generateContent({
-    model: model,
-    contents: `搜尋「${topic}」的 5 則最新繁體中文新聞。回傳 JSON 陣列，含：title, snippet(摘要), source, time(發布時間), link。`,
-    config: { tools: [{ googleSearch: {} }] }
-  });
-  const data = extractJson(resp.text);
-  if (Array.isArray(data)) return data.slice(0, 5);
-  return [];
+export interface SearchResult {
+  news: NewsItem[];
+  sources: { title: string; uri: string }[];
+}
+
+export const searchNews = async (topic: string, model: string = MODELS.FLASH_3): Promise<SearchResult> => {
+  try {
+    const ai = getAIClient();
+    const resp = await ai.models.generateContent({
+      model: model,
+      contents: `搜尋「${topic}」的最新 5 則繁體中文新聞素材。請先回傳 JSON 格式的新聞清單（含 title, snippet, source, time, link 欄位），並利用 googleSearch 工具確保資訊最新。`,
+      config: { tools: [{ googleSearch: {} }] }
+    });
+
+    const news = extractJson(resp.text) || [];
+    const groundingChunks = resp.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    
+    // 提取來源連結 (Google 規範)
+    const sources = groundingChunks
+      .filter((chunk: any) => chunk.web)
+      .map((chunk: any) => ({
+        title: chunk.web.title || "參考來源",
+        uri: chunk.web.uri
+      }));
+
+    return {
+      news: Array.isArray(news) ? news.slice(0, 5) : [],
+      sources: sources
+    };
+  } catch (err: any) {
+    if (err.message === "API_KEY_MISSING") throw new Error("請先在 Vercel 設定 API_KEY 環境變數。");
+    throw err;
+  }
 };
 
 export const generateBilingualContent = async (input: string, style: string, modelType: string): Promise<GeneratedArticle> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   
   const visualStyleGuideline = `
     VERSION 2.1 VISUAL STYLE (MANDATORY):
@@ -199,7 +234,7 @@ export const generateBilingualContent = async (input: string, style: string, mod
 };
 
 export const generateImage = async (prompt: string, aspectRatio: any): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   const resp = await ai.models.generateContent({
     model: MODELS.IMAGE_GEN,
     contents: { parts: [{ text: prompt }] },

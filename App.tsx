@@ -17,7 +17,7 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [currentInputText, setCurrentInputText] = useState("");
-  const [hasKey, setHasKey] = useState<boolean>(true); // 預設為 true 以避免 Flash 模型閃爍
+  const [hasKey, setHasKey] = useState<boolean>(true); 
   
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -25,25 +25,32 @@ const App: React.FC = () => {
     const savedHistory = localStorage.getItem('gen_history');
     if (savedHistory) setHistory(JSON.parse(savedHistory));
 
-    // 檢查是否有選取 API Key
     const checkKey = async () => {
-      if (window.aistudio) {
-        const selected = await window.aistudio.hasSelectedApiKey();
-        setHasKey(selected);
+      // 檢查 window.aistudio 是否存在
+      if (typeof window !== 'undefined' && window.aistudio) {
+        try {
+          const selected = await window.aistudio.hasSelectedApiKey();
+          setHasKey(selected);
+        } catch (e) {
+          console.error("Failed to check API key status", e);
+        }
       }
     };
     checkKey();
   }, []);
 
   const handleOpenKeySelector = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      setHasKey(true); // 觸發後假設成功以進入應用
+    if (typeof window !== 'undefined' && window.aistudio) {
+      try {
+        await window.aistudio.openSelectKey();
+        setHasKey(true); 
+      } catch (e) {
+        console.error("Failed to open key selector", e);
+      }
     }
   };
 
   const handleGenerate = async (text: string, style: string) => {
-    // 如果是 Pro 模型且沒金鑰，先攔截
     if (selectedModel === MODELS.PRO_3 && !hasKey) {
       setError("使用 Pro 模型需要先選取付費 API 金鑰。");
       return;
@@ -58,9 +65,10 @@ const App: React.FC = () => {
       const result = await generateBilingualContent(text, style, selectedModel);
       setGeneratedData(result);
       
+      const titleClean = result.chinese.titleStrategies.intuitive.replace(/[📌🚀]/g, '');
       const newHistoryItem: HistoryItem = {
         id: Math.random().toString(36).substr(2, 9),
-        title: result.chinese.titleStrategies.intuitive.replace(/[📌🚀]/g, '').slice(0, 25) + "...",
+        title: titleClean.length > 25 ? titleClean.slice(0, 25) + "..." : titleClean,
         timestamp: Date.now(),
         modelUsed: selectedModel,
         data: result
@@ -72,7 +80,6 @@ const App: React.FC = () => {
 
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
     } catch (err: any) {
-      // 處理實體未找到的錯誤 (通常與金鑰無效有關)
       if (err.message && err.message.includes("Requested entity was not found")) {
         setHasKey(false);
         setError("API 金鑰驗證失敗，請重新選取有效的付費專案金鑰。");
@@ -103,7 +110,6 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[#F7F7F5] relative">
       <ModelInfoModal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} />
 
-      {/* API Key Required Overlay */}
       {!hasKey && (
         <div className="fixed inset-0 z-[100] bg-[#050A14]/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border border-stone-100">
@@ -126,7 +132,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* History Sidebar */}
       <div className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] transform transition-transform duration-300 border-l border-stone-100 flex flex-col ${isHistoryOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
             <h3 className="font-bold text-slate-800 flex items-center gap-2">

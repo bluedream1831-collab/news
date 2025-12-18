@@ -21,12 +21,12 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
   const [text, setText] = useState(initialText);
   const [isSearching, setIsSearching] = useState(false);
   const [newsResults, setNewsResults] = useState<NewsItem[]>([]);
+  const [groundingSources, setGroundingSources] = useState<{title: string, uri: string}[]>([]);
   const [searchTopic, setSearchTopic] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('professional');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [manualSearchTerm, setManualSearchTerm] = useState('');
   const [keywords, setKeywords] = useState<string[]>(['隨機', ...ORIGINAL_KEYWORDS]);
-  const [lastSaved, setLastSaved] = useState<number | null>(null);
   const [searchModel, setSearchModel] = useState<string>(MODELS.FLASH_3);
   const [showSavedToast, setShowSavedToast] = useState(false);
 
@@ -45,7 +45,6 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
     const timer = setTimeout(() => {
       if (text && text !== initialText) {
         localStorage.setItem('current_draft', text);
-        setLastSaved(Date.now());
         setShowSavedToast(true);
         setTimeout(() => setShowSavedToast(false), 2000);
       }
@@ -53,18 +52,12 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
     return () => clearTimeout(timer);
   }, [text]);
 
-  const handleSaveManual = () => {
-    localStorage.setItem('current_draft', text);
-    setLastSaved(Date.now());
-    setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 2000);
-  };
-
   const handleSearch = useCallback(async (topic: string) => {
     if (isSearching) return;
     setIsSearching(true);
     setErrorMessage(null);
     setNewsResults([]);
+    setGroundingSources([]);
 
     let targetTopic = topic;
     if (topic === '隨機') {
@@ -77,21 +70,24 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
           setKeywords(newList);
           targetTopic = newList.find(k => k !== '隨機') || '科技趨勢';
         }
-      } catch (e) {
+      } catch (e: any) {
+        setErrorMessage(e.message || "熱搜獲取失敗。");
         targetTopic = keywords[1];
       }
     }
 
     setSearchTopic(targetTopic);
     try {
-      const results = await searchNews(targetTopic, searchModel);
-      if (results && results.length > 0) {
-        setNewsResults(results);
+      const { news, sources } = await searchNews(targetTopic, searchModel);
+      if (news && news.length > 0) {
+        setNewsResults(news);
+        setGroundingSources(sources);
       } else {
-        setErrorMessage(`「${targetTopic}」目前搜尋不到相關新聞。`);
+        setErrorMessage(`「${targetTopic}」目前搜尋不到相關新聞 JSON。`);
+        setGroundingSources(sources); // 即使解析 JSON 失敗，仍顯示來源連結
       }
-    } catch (e) {
-      setErrorMessage("搜尋服務目前連線不穩定，請稍後再試。");
+    } catch (e: any) {
+      setErrorMessage(e.message || "搜尋連線失敗，請檢查 API Key 設定。");
     } finally {
       setIsSearching(false);
     }
@@ -167,38 +163,66 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
                         <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                         <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                     </div>
-                    <span className="text-sm font-black tracking-widest uppercase">正在以 {searchModel.includes('2.0') ? '2.0 FLASH' : searchModel.includes('2.5') ? 'V2.5' : 'FLASH 3'} 搜尋「{searchTopic}」中...</span>
+                    <span className="text-sm font-black tracking-widest uppercase">正在搜尋「{searchTopic}」...</span>
                 </div>
             </div>
           )}
 
           {errorMessage && (
-            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-bold mb-4 flex items-center gap-2">
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-               {errorMessage}
+            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-bold mb-4 flex flex-col gap-2">
+               <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                  錯誤提示：{errorMessage}
+               </div>
+               {errorMessage.includes("API_KEY") && (
+                 <p className="text-[10px] text-red-400 bg-white/50 p-2 rounded">請前往 Vercel Settings > Environment Variables 新增 API_KEY 並重新部署。</p>
+               )}
             </div>
           )}
 
-          {newsResults.length > 0 && !isSearching && (
-            <div className="bg-stone-50 rounded-xl p-4 border border-stone-100 space-y-3 max-h-56 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex items-center justify-between mb-2">
-                 <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">搜尋結果：{searchTopic}</span>
-                 <button onClick={() => setNewsResults([])} className="text-[10px] text-stone-300 hover:text-stone-500 font-bold">清除搜尋</button>
-              </div>
-              {newsResults.map((news, i) => (
-                <div key={i} className="flex justify-between items-center gap-4 py-2 border-b border-stone-200 last:border-0 hover:bg-stone-100/50 rounded transition-colors px-1">
-                  <div className="flex-1">
-                    <div className="text-xs font-bold text-slate-700 line-clamp-1 group-hover:text-indigo-600 transition-colors">{news.title}</div>
-                    <div className="text-[10px] text-stone-400 mt-0.5">{news.source} • {news.time}</div>
-                  </div>
-                  <button 
-                    onClick={() => handleSelectNews(news)} 
-                    className="px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-[10px] font-black text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm shrink-0"
-                  >
-                    引用素材
-                  </button>
+          {(newsResults.length > 0 || groundingSources.length > 0) && !isSearching && (
+            <div className="bg-stone-50 rounded-xl p-4 border border-stone-100 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
+              
+              {/* Grounding Sources (Google Requirement) */}
+              {groundingSources.length > 0 && (
+                <div className="border-b border-stone-200 pb-3">
+                   <div className="flex items-center gap-2 mb-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-green-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      <span className="text-[10px] font-black text-stone-500 uppercase tracking-widest">AI 參考來源網頁</span>
+                   </div>
+                   <div className="flex flex-wrap gap-2">
+                      {groundingSources.map((s, i) => (
+                        <a key={i} href={s.uri} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-white border border-stone-200 rounded text-[10px] text-indigo-600 hover:bg-indigo-50 truncate max-w-[200px]">
+                           🔗 {s.title}
+                        </a>
+                      ))}
+                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Parsed News Results */}
+              {newsResults.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                     <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">搜尋結果：{searchTopic}</span>
+                     <button onClick={() => {setNewsResults([]); setGroundingSources([]);}} className="text-[10px] text-stone-300 hover:text-stone-500 font-bold">清除搜尋</button>
+                  </div>
+                  {newsResults.map((news, i) => (
+                    <div key={i} className="flex justify-between items-center gap-4 py-2 border-b border-stone-200 last:border-0 hover:bg-stone-100/50 rounded transition-colors px-1">
+                      <div className="flex-1">
+                        <div className="text-xs font-bold text-slate-700 line-clamp-1">{news.title}</div>
+                        <div className="text-[10px] text-stone-400 mt-0.5">{news.source} • {news.time}</div>
+                      </div>
+                      <button 
+                        onClick={() => handleSelectNews(news)} 
+                        className="px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-[10px] font-black text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm shrink-0"
+                      >
+                        引用素材
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -214,19 +238,10 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
             onChange={(e) => setText(e.target.value)}
           />
           
-          {/* Saved Status Indicator */}
           <div className={`absolute top-4 right-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500 text-white text-[10px] font-black shadow-xl transition-all duration-500 ${showSavedToast ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
              草稿已自動儲存
           </div>
-
-          <button 
-            onClick={handleSaveManual} 
-            className="absolute bottom-4 right-4 p-3 bg-white border border-stone-200 rounded-2xl shadow-lg text-stone-400 hover:text-indigo-600 hover:border-indigo-300 transition-all opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0"
-            title="手動儲存草稿"
-          >
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-          </button>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
@@ -256,7 +271,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
             className="w-full lg:w-auto px-12 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 active:scale-95 flex items-center justify-center gap-3"
           >
             {isLoading ? (
-              <><span className="animate-spin text-xl">✨</span> 正在生成雙語版本 2.1...</>
+              <><span className="animate-spin text-xl">✨</span> 正在生成雙語版本...</>
             ) : (
               <><span className="text-xl">🪄</span> 開始生成 雙語文章</>
             )}
