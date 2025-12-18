@@ -29,6 +29,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
   const [keywords, setKeywords] = useState<string[]>(['隨機', ...ORIGINAL_KEYWORDS]);
   const [searchModel, setSearchModel] = useState<string>(MODELS.FLASH_3);
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [showClearedToast, setShowClearedToast] = useState(false);
 
   useEffect(() => {
     if (initialText) setText(initialText);
@@ -72,7 +73,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
         }
       } catch (e: any) {
         setErrorMessage(e.message || "熱搜獲取失敗。");
-        targetTopic = keywords[1];
+        targetTopic = keywords[1] === '隨機' ? keywords[2] : keywords[1];
       }
     }
 
@@ -98,10 +99,22 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
     setText(prev => formatted + prev);
   };
 
+  const handleClear = () => {
+    setText("");
+    setManualSearchTerm("");
+    setNewsResults([]);
+    setGroundingSources([]);
+    setSearchTopic("");
+    localStorage.removeItem('current_draft');
+    
+    setShowClearedToast(true);
+    setTimeout(() => setShowClearedToast(false), 2000);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 sm:p-7 flex flex-col relative overflow-hidden">
-      {/* Header */}
-      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
+      {/* 頂部控制欄：素材中心 */}
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-stone-100 pb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-1">
             <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
@@ -118,102 +131,152 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
         </div>
       </div>
 
-      {/* Search Input */}
+      {/* 搜尋組件 */}
       <div className="mb-6 space-y-4">
         <form onSubmit={(e) => { e.preventDefault(); if(manualSearchTerm.trim()) handleSearch(manualSearchTerm); }} className="relative">
           <input 
             type="text" 
-            className="w-full pl-5 pr-32 py-3.5 bg-stone-50 border border-stone-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-5 pr-32 py-3.5 bg-stone-50 border border-stone-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             placeholder="搜尋最新話題素材..."
             value={manualSearchTerm}
             onChange={(e) => setManualSearchTerm(e.target.value)}
           />
-          <button type="submit" disabled={isSearching} className="absolute right-1.5 top-1.5 bottom-1.5 px-6 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-50">
-            {isSearching ? '⏳' : '搜尋'}
+          <button type="submit" disabled={isSearching} className="absolute right-1.5 top-1.5 bottom-1.5 px-6 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-2">
+            {isSearching ? <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div> : '搜尋'}
           </button>
         </form>
 
         <div className="flex flex-wrap gap-2">
             {keywords.map(kw => (
-              <button key={kw} onClick={() => handleSearch(kw)} disabled={isSearching} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${searchTopic === kw ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}>
+              <button key={kw} onClick={() => handleSearch(kw)} disabled={isSearching} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${searchTopic === kw ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50 active:scale-95'}`}>
                 {kw}
               </button>
             ))}
         </div>
       </div>
 
-      {/* Results / Error Area */}
+      {/* 搜尋結果顯示區 */}
+      {isSearching && (
+        <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-stone-100 space-y-4">
+           {[1, 2].map(i => (
+             <div key={i} className="flex justify-between items-center py-2 animate-pulse">
+               <div className="flex-1 space-y-2">
+                 <div className="h-4 bg-stone-200 rounded w-3/4"></div>
+                 <div className="h-3 bg-stone-200 rounded w-1/2"></div>
+               </div>
+             </div>
+           ))}
+        </div>
+      )}
+
+      {/* Render news results if search is complete */}
+      {!isSearching && newsResults.length > 0 && (
+        <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-stone-100 max-h-64 overflow-y-auto custom-scrollbar">
+          <h3 className="text-xs font-bold text-stone-400 uppercase mb-3 px-2 tracking-widest">搜尋到的素材結果</h3>
+          <div className="space-y-3">
+            {newsResults.map((item, idx) => (
+              <div key={idx} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm hover:border-indigo-300 transition-colors group">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <h4 className="text-sm font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors">{item.title}</h4>
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{item.snippet}</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">{item.source}</span>
+                      <span className="text-[10px] text-stone-400">{item.time}</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => handleSelectNews(item)}
+                    className="shrink-0 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all active:scale-90"
+                    title="引用新聞素材"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Error Message with Grounding Sources if any */}
       {errorMessage && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-bold">
-          ⚠️ 狀態：{errorMessage}
-        </div>
-      )}
-
-      {(groundingSources.length > 0 || newsResults.length > 0) && (
-        <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-stone-100 max-h-[300px] overflow-y-auto custom-scrollbar">
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-600 flex flex-col gap-2">
+          <div className="flex items-center gap-2 font-bold">
+            <span>⚠️</span> {errorMessage}
+          </div>
           {groundingSources.length > 0 && (
-            <div className="mb-4">
-              <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-2">AI 參考來源網頁</span>
-              <div className="flex flex-wrap gap-2">
-                {groundingSources.map((s, i) => (
-                  <a key={i} href={s.uri} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-white border border-stone-200 rounded text-[10px] text-indigo-600 hover:bg-indigo-50">
-                    🔗 {s.title}
-                  </a>
-                ))}
-              </div>
+            <div className="mt-2 pl-6 space-y-1">
+              <p className="text-stone-500 font-bold mb-1 uppercase tracking-tighter">參考連結：</p>
+              {groundingSources.map((source, idx) => (
+                <a key={idx} href={source.uri} target="_blank" rel="noopener noreferrer" className="block text-indigo-500 hover:underline truncate">
+                  • {source.title}
+                </a>
+              ))}
             </div>
           )}
-          {newsResults.map((news, i) => (
-            <div key={i} className="flex justify-between items-center py-2 border-b border-stone-200 last:border-0">
-              <div className="flex-1">
-                <div className="text-xs font-bold text-slate-700 line-clamp-1">{news.title}</div>
-                <div className="text-[10px] text-stone-400">{news.source} • {news.time}</div>
-              </div>
-              <button onClick={() => handleSelectNews(news)} className="ml-4 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-[10px] font-black text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
-                引用
-              </button>
-            </div>
-          ))}
         </div>
       )}
 
-      {/* Main Text Area */}
-      <div className="mt-4 flex flex-col gap-4">
-        <div className="relative">
-          <textarea 
-            className="w-full min-h-[300px] p-5 bg-stone-50 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm leading-relaxed"
-            placeholder="貼上新聞或輸入您的想法..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          {showSavedToast && (
-            <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg">
-              草稿已儲存
-            </div>
-          )}
+      {/* 主要文字輸入區 */}
+      <div className="flex-1 flex flex-col min-h-[300px]">
+        <div className="flex justify-between items-center mb-2 px-1">
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">輸入您的創作素材或大綱</label>
+          <div className="flex items-center gap-4">
+             {showSavedToast && <span className="text-[10px] text-emerald-500 font-bold animate-pulse">✨ 已自動儲存</span>}
+             {showClearedToast && <span className="text-[10px] text-rose-500 font-bold">🗑️ 已清空內容</span>}
+             <button onClick={handleClear} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors">清空內容</button>
+          </div>
         </div>
+        <textarea 
+          className="flex-1 w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-sm sm:text-base outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none font-chinese leading-relaxed"
+          placeholder="貼上剛才引用的新聞、您自己的草稿或任何關鍵想法。AI 將會為您生成包含 SEO 英文與社群中文的全套內容套餐..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 items-center">
-          <select 
-            value={selectedStyle}
-            onChange={(e) => setSelectedStyle(e.target.value)}
-            className="w-full sm:w-auto p-3 bg-white border border-stone-200 rounded-xl text-sm"
-          >
-            <option value="professional">專業分析</option>
-            <option value="storytelling">故事敘述</option>
-            <option value="humorous">幽默風趣</option>
-          </select>
-          <button 
-            onClick={() => onGenerate(text, selectedStyle)} 
-            disabled={isLoading || !text.trim()} 
-            className="w-full flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl transition-all disabled:opacity-50"
-          >
-            {isLoading ? '✨ 正在生成中...' : '🪄 生成雙語內容套餐'}
-          </button>
+      {/* 底部按鈕區 */}
+      <div className="mt-6 flex flex-col sm:flex-row items-center gap-4 pt-6 border-t border-stone-100">
+        <div className="w-full sm:w-auto flex-1 flex items-center gap-3">
+          <span className="text-xs font-bold text-slate-400 shrink-0">生成風格:</span>
+          <div className="flex bg-stone-100 p-1 rounded-xl w-full">
+            {[
+              { id: 'professional', label: '專業嚴謹' },
+              { id: 'creative', label: '爆款創意' },
+              { id: 'storytelling', label: '敘事共鳴' }
+            ].map(style => (
+              <button 
+                key={style.id} 
+                onClick={() => setSelectedStyle(style.id)}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${selectedStyle === style.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-stone-400'}`}
+              >
+                {style.label}
+              </button>
+            ))}
+          </div>
         </div>
+        <button 
+          onClick={() => onGenerate(text, selectedStyle)}
+          disabled={isLoading || !text.trim()}
+          className={`w-full sm:w-auto px-12 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isLoading || !text.trim() ? 'bg-stone-300 shadow-none' : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700'}`}
+        >
+          {isLoading ? (
+            <>
+              <div className="animate-spin h-5 w-5 border-3 border-white border-t-transparent rounded-full"></div>
+              <span>生成中...</span>
+            </>
+          ) : (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <span>立即生成全套餐內容</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
 };
 
+// Fix the error: Module has no default export
 export default InputArea;
