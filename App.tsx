@@ -7,9 +7,19 @@ import EnglishResult from './components/EnglishResult';
 import ChineseResult from './components/ChineseResult';
 import ModelInfoModal from './components/ModelInfoModal';
 
+const LOADING_STEPS = [
+  "🤖 AI 正在閱讀您的素材...",
+  "🔍 搜尋關聯關鍵字中...",
+  "✍️ 撰寫 SEO 優化英文內容...",
+  "🔥 生成社群爆款中文貼文...",
+  "✨ 最後修飾與檢查...",
+  "📦 內容套餐打包中..."
+];
+
 const App: React.FC = () => {
   const [generatedData, setGeneratedData] = useState<GeneratedArticle | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'english' | 'chinese'>('chinese');
   const [selectedModel, setSelectedModel] = useState<string>(MODELS.FLASH_3);
@@ -26,7 +36,6 @@ const App: React.FC = () => {
     if (savedHistory) setHistory(JSON.parse(savedHistory));
 
     const checkKey = async () => {
-      // 檢查 window.aistudio 是否存在
       if (typeof window !== 'undefined' && window.aistudio) {
         try {
           const selected = await window.aistudio.hasSelectedApiKey();
@@ -38,6 +47,18 @@ const App: React.FC = () => {
     };
     checkKey();
   }, []);
+
+  // Loading step rotation logic
+  useEffect(() => {
+    let interval: number;
+    if (loading) {
+      setLoadingStep(0);
+      interval = window.setInterval(() => {
+        setLoadingStep(prev => (prev + 1) % LOADING_STEPS.length);
+      }, 2500);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handleOpenKeySelector = async () => {
     if (typeof window !== 'undefined' && window.aistudio) {
@@ -117,14 +138,14 @@ const App: React.FC = () => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
             </div>
             <h2 className="text-2xl font-black text-slate-800 mb-3">需要選取 API 金鑰</h2>
-            <p className="text-slate-500 mb-8 leading-relaxed">
+            <p className="text-slate-500 mb-8 leading-relaxed font-chinese">
               為了確保 Pro 模型的高效運作，請選取一個已啟用結算的 Google Cloud 專案金鑰。
               <br/>
               <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold underline">瞭解結算說明</a>
             </p>
             <button 
               onClick={handleOpenKeySelector}
-              className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+              className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
             >
               選取付費 API 金鑰
             </button>
@@ -132,6 +153,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* History Sidebar */}
       <div className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] transform transition-transform duration-300 border-l border-stone-100 flex flex-col ${isHistoryOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
             <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -142,21 +164,21 @@ const App: React.FC = () => {
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
             {history.length === 0 ? (
-                <div className="text-center py-12 text-stone-400 text-sm">尚無生成歷史</div>
+                <div className="text-center py-12 text-stone-400 text-sm font-chinese">尚無生成歷史</div>
             ) : (
                 history.map(item => (
-                    <button key={item.id} onClick={() => loadFromHistory(item)} className="w-full text-left p-4 rounded-xl border border-stone-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group">
+                    <button key={item.id} onClick={() => loadFromHistory(item)} className="w-full text-left p-4 rounded-xl border border-stone-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group active:scale-[0.98]">
                         <div className="flex justify-between items-start mb-2">
                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">{item.modelUsed.split('-')[1].toUpperCase()}</span>
                            <span className="text-[10px] text-stone-300">{new Date(item.timestamp).toLocaleDateString()}</span>
                         </div>
-                        <div className="text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-indigo-700">{item.title}</div>
+                        <div className="text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-indigo-700 font-chinese">{item.title}</div>
                     </button>
                 ))
             )}
         </div>
         <div className="p-4 border-t border-stone-100">
-           <button onClick={() => { setHistory([]); localStorage.removeItem('gen_history'); }} className="w-full py-2 text-xs font-bold text-red-400 hover:text-red-600 transition-colors">清除所有歷史</button>
+           <button onClick={() => { if(window.confirm('確定要清除所有歷史嗎？')) { setHistory([]); localStorage.removeItem('gen_history'); } }} className="w-full py-2 text-xs font-bold text-red-400 hover:text-red-600 transition-colors">清除所有歷史</button>
         </div>
       </div>
 
@@ -164,7 +186,7 @@ const App: React.FC = () => {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
                 <div className="h-9 w-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><span className="text-white font-black text-xl">B</span></div>
-                <h1 className="text-white font-bold hidden sm:block tracking-tight">雙語文章生成器 <span className="text-indigo-400 ml-1 opacity-60 text-xs">V2.1</span></h1>
+                <h1 className="text-white font-bold hidden sm:block tracking-tight font-chinese">雙語文章生成器 <span className="text-indigo-400 ml-1 opacity-60 text-xs tracking-widest">V2.1</span></h1>
             </div>
             
             <div className="bg-slate-900/80 p-1 rounded-2xl flex items-center gap-1 border border-slate-800">
@@ -176,11 +198,11 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-                <button onClick={() => setIsHistoryOpen(true)} className="p-2.5 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-white transition-all relative">
+                <button onClick={() => setIsHistoryOpen(true)} className="p-2.5 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-white transition-all relative active:scale-95">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     {history.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>}
                 </button>
-                <button onClick={() => setIsInfoModalOpen(true)} className="p-2.5 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-white transition-all">
+                <button onClick={() => setIsInfoModalOpen(true)} className="p-2.5 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-white transition-all active:scale-95">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>
             </div>
@@ -197,11 +219,42 @@ const App: React.FC = () => {
         />
         
         <div className="mt-10" ref={resultRef}>
-          {error && <div className="bg-red-50 text-red-700 p-5 rounded-2xl border border-red-200 mb-6 flex gap-3 shadow-sm animate-bounce"><span className="text-xl">⚠️</span> {error}</div>}
+          {error && (
+            <div className="bg-red-50 text-red-700 p-5 rounded-2xl border border-red-200 mb-6 flex gap-3 shadow-sm animate-in zoom-in-95">
+              <span className="text-xl">⚠️</span> {error}
+            </div>
+          )}
+
+          {loading && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div className="bg-white p-8 rounded-3xl border border-stone-100 shadow-xl flex flex-col items-center text-center">
+                  <div className="relative mb-6">
+                    <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center animate-pulse-fast">
+                       <svg className="w-10 h-10 text-indigo-500 animate-bounce" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                       </svg>
+                    </div>
+                    <div className="absolute inset-0 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 mb-2 font-chinese">內容醞釀中...</h3>
+                  <p className="text-indigo-600 font-bold h-6 transition-all font-chinese">{LOADING_STEPS[loadingStep]}</p>
+                  
+                  <div className="w-full max-w-sm bg-stone-100 h-1.5 rounded-full mt-8 overflow-hidden">
+                     <div className="h-full bg-indigo-600 rounded-full animate-shimmer bg-shimmer" style={{ width: `${((loadingStep + 1) / LOADING_STEPS.length) * 100}%`, transition: 'width 0.5s ease-in-out' }}></div>
+                  </div>
+               </div>
+               
+               {/* Skeleton Preview */}
+               <div className="space-y-4 opacity-40 grayscale pointer-events-none">
+                  <div className="h-14 bg-white rounded-2xl border border-stone-200"></div>
+                  <div className="h-64 bg-white rounded-2xl border border-stone-200"></div>
+               </div>
+            </div>
+          )}
 
           {generatedData && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-5 rounded-2xl border border-stone-200 shadow-sm gap-5">
+              <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-5 rounded-2xl border border-stone-200 shadow-sm gap-5 animate-in slide-in-from-top-4">
                   <div className="flex bg-stone-100 p-1 rounded-xl w-full sm:w-auto">
                     <button onClick={() => setActiveTab('chinese')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'chinese' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}>繁中 社群貼文</button>
                     <button onClick={() => setActiveTab('english')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'english' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>英文 SEO 內容</button>
