@@ -12,9 +12,7 @@ export const MODELS = {
 };
 
 const getAIClient = () => {
-  // 嘗試從 process.env 獲取變數
   const apiKey = process.env.API_KEY;
-  
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
     throw new Error("API_KEY_MISSING");
   }
@@ -23,7 +21,6 @@ const getAIClient = () => {
 
 const extractJson = (text: string | undefined): any => {
   if (!text) return null;
-  // 移除 Markdown 標籤並嘗試解析
   const cleaned = text.replace(/```json\n?|```/g, '').trim();
   try {
     return JSON.parse(cleaned);
@@ -87,48 +84,47 @@ export const generateBilingualContent = async (input: string, style: string, mod
     contents: `Original Material: ${input}`,
     config: {
       responseMimeType: "application/json",
-      systemInstruction: `你是一位精通 SEO 與多平台社群經營的資深編輯。
+      systemInstruction: `你是一位精通 SEO 策略與深度內容創作的資深主編，擅長透過社群視覺引流至部落格長文。
+
+⏰ 時間覺醒指令：
+- 必須精確識別 Original Material 中的【年份資訊】與【日期】。
+- 如果素材提到 2025 年，產出的文章年份必須與之 100% 匹配。嚴禁寫成 2024 年。
+
+🚫 視覺排版優化 (CRITICAL)：
+- **嚴禁使用 Markdown 標題標籤**：禁止使用 #, ##, ###。
+- **改用 Emoji 分段**：請使用生動的 Emoji (如 📌, 🚀, ✨, 💡, 📝, 🔍, 🔥) 作為每個小節或段落的開頭標誌。
+- **嚴禁粗體語法**：嚴禁使用 ** 符號。
+- 透過「Emoji + 換行」來創造呼吸感與層次感。
+
 風格設定：${style}。
-請根據提供的素材生成雙語內容。
+輸出語言：英文 (SEO 導向) 與 繁體中文 (深度閱讀與引流導向)。
 
-⚡️強制規範：
-1. 豐富 Emoji：在所有生成內容中，必須根據語境嵌入大量且生動的 Emoji，增加吸引力。
-2. 禁止粗體語法：嚴禁在任何輸出的文字中使用 Markdown 的雙星號粗體標記（禁止出現 ** 符號）。若需強調重點，請使用 Emoji 或直接換行。
-3. 繁體中文規範：所有內容均需使用台灣常用的繁體中文術語。
-4. HTML 規範：在 fullHtml 欄位中，僅使用 <h2>, <h3>, <p>, <ul>, <li> 等結構化標籤，嚴禁使用 <strong> 或 <b> 標籤。
+⚡️ 繁體中文引流規範：
+1. **標題策略**：必須提供 titleStrategies 物件，包含 intuitive, suspense, benefit 三種標題（不使用##）。
+2. **文案導流**：instagramCaption 與 threadsPost.cta 必須包含引流語句。
+3. **視覺導流 (quoteImagePrompt)**：1:1 指令並描述「底部保留約 1/5 空間作為導流文字區」。
 
-輸出格式必須嚴格遵守以下 JSON 結構：
+輸出格式：
 {
-  "english": {
-    "seoStrategy": { "permalinkSlug": "", "searchDescription": "", "labels": [] },
-    "visualInstructions": { "imagePrompt": "", "imageAltText": "" },
-    "articleContent": { "h1Title": "", "fullHtml": "" },
-    "operatingSuggestions": { "longTailKeywords": [], "internalLinkTip": "", "trafficGrowthTip": "" }
-  },
+  "english": { ... },
   "chinese": {
-    "titleStrategies": { "intuitive": "", "suspense": "", "benefit": "" },
-    "content": { "style": "", "markdownBody": "", "callToAction": "", "instagramQuote": "", "instagramCaption": "" },
-    "threadsPost": { "hook": "", "content": "", "cta": "", "tags": "" },
-    "visualInstructions": { "imagePrompt": "", "imageAltText": "", "quoteImagePrompt": "", "storyImagePrompt": "" },
-    "operatingSuggestions": { "vocusCollection": "", "interactionQuestion": "", "crossPromotionTip": "" }
+    "titleStrategies": { "intuitive": "...", "suspense": "...", "benefit": "..." },
+    "visualInstructions": { "imagePrompt": "...", "imageAltText": "...", "quoteImagePrompt": "...", "storyImagePrompt": "..." },
+    "content": { "markdownBody": "...", "instagramQuote": "...", "instagramCaption": "...", "callToAction": "..." },
+    "threadsPost": { "hook": "...", "content": "...", "cta": "...", "tags": "..." },
+    "operatingSuggestions": { "vocusCollection": "...", "interactionQuestion": "...", "crossPromotionTip": "..." }
   }
 }`,
-      temperature: 0.8,
+      temperature: 0.85,
     }
   });
   
   const article = extractJson(response.text) as GeneratedArticle;
-  
   if (!article || !article.english || !article.chinese) {
-    throw new Error("AI 回傳的資料格式不完整，請嘗試縮減素材長度或更換模型重新生成。");
+    throw new Error("AI 回傳格式不完整，請嘗試切換引擎或重新生成。");
   }
-
   return {
     ...article,
-    metadata: {
-      modelUsed: modelType,
-      timestamp: Date.now(),
-      originalInput: input
-    }
+    metadata: { modelUsed: modelType, timestamp: Date.now(), originalInput: input }
   };
 };

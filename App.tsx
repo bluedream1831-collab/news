@@ -48,7 +48,6 @@ const App: React.FC = () => {
     checkKey();
   }, []);
 
-  // Loading step rotation logic
   useEffect(() => {
     let interval: number;
     if (loading) {
@@ -86,7 +85,10 @@ const App: React.FC = () => {
       const result = await generateBilingualContent(text, style, selectedModel);
       setGeneratedData(result);
       
-      const titleClean = result.chinese.titleStrategies.intuitive.replace(/[📌🚀]/g, '');
+      // 核心修復：加入安全讀取
+      const rawTitle = result?.chinese?.titleStrategies?.intuitive || result?.chinese?.content?.instagramQuote || "未命名生成內容";
+      const titleClean = rawTitle.replace(/[📌🚀✨]/g, '');
+      
       const newHistoryItem: HistoryItem = {
         id: Math.random().toString(36).substr(2, 9),
         title: titleClean.length > 25 ? titleClean.slice(0, 25) + "..." : titleClean,

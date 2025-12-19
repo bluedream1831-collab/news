@@ -9,33 +9,16 @@ interface ChineseResultProps {
 const ChineseResult: React.FC<ChineseResultProps> = ({ data }) => {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
 
-  // 核心修復：如果 data 為 undefined，顯示錯誤狀態而非崩潰
-  if (!data) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-xl p-8 text-center font-chinese">
-        <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-        </div>
-        <h3 className="text-slate-800 font-bold mb-2">繁體中文內容解析失敗</h3>
-        <p className="text-slate-500 text-sm">AI 未能正確輸出繁體中文部分，這可能是因為素材內容過於簡短或格式異常。請嘗試更換模型或調整素材後重新生成。</p>
-      </div>
-    );
-  }
+  if (!data) return null;
 
-  // UI-level Emoji Formatter (Clean Style)
   const formatEmojiContent = (text: string) => {
     if (!text) return "";
-    return text
-      .replace(/###\s?/g, "📌 ") // 替換 ### 標題
-      .replace(/、/g, " ✨ ");   // 替換列舉逗號
+    return text.replace(/###\s?/g, "📌 ").replace(/、/g, " ✨ ");
   };
 
-  const threadsPost = data.threadsPost || { hook: '', content: '', cta: '', tags: '' };
-  const visual = data.visualInstructions || { imagePrompt: '', imageAltText: '', quoteImagePrompt: '', storyImagePrompt: '' };
-  const suggestions = data.operatingSuggestions || { vocusCollection: '', interactionQuestion: '', crossPromotionTip: '' };
-
   const copyToClipboard = (text: string, section: string) => {
-    navigator.clipboard.writeText(formatEmojiContent(text));
+    if (!text) return;
+    navigator.clipboard.writeText(text);
     setCopiedSection(section);
     setTimeout(() => setCopiedSection(null), 2000);
   };
@@ -45,16 +28,11 @@ const ChineseResult: React.FC<ChineseResultProps> = ({ data }) => {
     const formattedText = formatEmojiContent(text);
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = formattedText.split(urlRegex);
-
     return (
         <span className={className}>
             {parts.map((part, index) => {
                 if (part.match(urlRegex)) {
-                    return (
-                        <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 break-all">
-                            {part}
-                        </a>
-                    );
+                    return <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">{part}</a>;
                 }
                 return part;
             })}
@@ -72,138 +50,175 @@ const ChineseResult: React.FC<ChineseResultProps> = ({ data }) => {
 
   return (
     <div className="space-y-6 font-chinese">
-      {/* Title Strategies */}
-      <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 sm:p-5">
-        <h3 className="text-rose-900 font-bold mb-4 flex items-center gap-2">
-           <span className="bg-rose-600 text-white text-xs px-2 py-1 rounded">標題策略</span>
-           (Title Options)
-        </h3>
-        <div className="grid gap-3">
-            {[
-                { label: '直覺型 (Intuitive)', val: data.titleStrategies?.intuitive, key: 'title_intuitive' },
-                { label: '懸念型 (Suspense)', val: data.titleStrategies?.suspense, key: 'title_suspense' },
-                { label: '利益型 (Benefit)', val: data.titleStrategies?.benefit, key: 'title_benefit' }
-            ].map(item => (
-                <div key={item.key} className="bg-white p-3 rounded border border-rose-200 hover:shadow-sm transition-shadow">
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-bold text-rose-500 uppercase">{item.label}</span>
-                        <button onClick={() => copyToClipboard(item.val || '', item.key)} className="text-rose-400 hover:text-rose-600 p-1.5 rounded">
-                            {copiedSection === item.key ? <span className="text-green-600 flex items-center gap-1 text-xs font-bold"><CheckIcon/> 已複製</span> : <CopyIcon/>}
-                        </button>
-                    </div>
-                    <p className="font-medium text-slate-800 text-sm sm:text-base">{formatEmojiContent(item.val || '')}</p>
-                </div>
-            ))}
+      {/* 1. 標題與部落格封面 */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+           <div className="bg-rose-50 border border-rose-100 rounded-2xl p-5 shadow-sm">
+              <h3 className="text-rose-900 font-bold mb-4 flex items-center gap-2">
+                 <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded">標題建議</span>
+              </h3>
+              <div className="space-y-3">
+                  {/* 核心修復：加入安全檢查與預設列表 */}
+                  {[
+                      { label: '直覺型', val: data.titleStrategies?.intuitive, key: 't1' },
+                      { label: '懸念型', val: data.titleStrategies?.suspense, key: 't2' },
+                      { label: '利益型', val: data.titleStrategies?.benefit, key: 't3' }
+                  ].map(item => (
+                      <div key={item.key} className="bg-white p-3 rounded-xl border border-rose-200 flex justify-between items-center group shadow-sm">
+                          <p className="font-bold text-slate-800 text-sm">
+                            {item.val ? formatEmojiContent(item.val) : <span className="text-slate-300 italic">尚未生成內容</span>}
+                          </p>
+                          {item.val && (
+                            <button onClick={() => copyToClipboard(item.val || '', item.key)} className="ml-4 text-rose-400 group-hover:text-rose-600">
+                               {copiedSection === item.key ? <CheckIcon/> : <CopyIcon/>}
+                            </button>
+                          )}
+                      </div>
+                  ))}
+              </div>
+           </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+           <h3 className="text-slate-800 font-bold mb-3 flex items-center gap-2 text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
+              部落格封面指令 (Destination)
+           </h3>
+           <div className="bg-slate-50 rounded-xl p-4 border border-dashed border-slate-300 relative group">
+              <p className="text-xs text-slate-600 leading-relaxed mb-4">{data.visualInstructions?.imagePrompt || "無提示詞數據"}</p>
+              {data.visualInstructions?.imagePrompt && (
+                <button 
+                  onClick={() => copyToClipboard(data.visualInstructions?.imagePrompt || '', 'blog_hero')}
+                  className="w-full py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-md"
+                >
+                  {copiedSection === 'blog_hero' ? <><CheckIcon/> 已複製</> : <><CopyIcon/> 複製封面提示詞</>}
+                </button>
+              )}
+           </div>
+           <p className="mt-3 text-[10px] text-slate-400">比例：16:9 適合方格子或 WordPress</p>
         </div>
       </div>
 
-      {/* Threads Section */}
-      <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
-         <div className="bg-black text-white px-4 py-3 flex justify-between items-center">
-             <div className="flex items-center gap-2">
-                 <div className="bg-white text-black rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs">@</div>
-                 <h3 className="font-bold text-sm sm:text-base">Threads 導流短文</h3>
-             </div>
-             <button onClick={() => copyToClipboard(`${threadsPost.hook}\n\n${threadsPost.content}\n\n${threadsPost.cta}\n\n${threadsPost.tags}`, 'threads')} className="text-xs font-semibold bg-stone-800 hover:bg-stone-700 text-white border border-stone-700 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1">
-                {copiedSection === 'threads' ? '已複製' : '複製串文'}
+      {/* 2. Threads 引流串文 */}
+      <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
+         <div className="bg-black text-white px-5 py-3 flex justify-between items-center">
+             <span className="font-black text-sm tracking-widest flex items-center gap-2">THREADS 引流串文</span>
+             <button onClick={() => copyToClipboard(`${data.threadsPost?.hook}\n\n${data.threadsPost?.content}\n\n${data.threadsPost?.cta}`, 'threads')} className="text-xs font-bold bg-stone-800 px-3 py-1.5 rounded-full border border-stone-700">
+                {copiedSection === 'threads' ? '已複製' : '一鍵複製內容'}
              </button>
          </div>
-         <div className="p-4 sm:p-6">
-             <div className="text-sm sm:text-base whitespace-pre-wrap leading-relaxed">
-                 <div className="font-bold mb-3">{formatEmojiContent(threadsPost.hook)}</div>
-                 <div className="mb-3 text-slate-800">{formatEmojiContent(threadsPost.content)}</div>
-                 <div className="mb-3 font-semibold text-blue-600 underline">{renderWithLinksAndEmoji(threadsPost.cta)}</div>
-                 <div className="text-blue-500 text-xs font-bold">{threadsPost.tags}</div>
-             </div>
+         <div className="p-6 text-sm leading-relaxed whitespace-pre-wrap">
+            <div className="font-bold mb-2 text-indigo-600">{formatEmojiContent(data.threadsPost?.hook)}</div>
+            <div className="text-slate-800 mb-4">{formatEmojiContent(data.threadsPost?.content)}</div>
+            <div className="bg-indigo-50 p-3 rounded-lg border-l-4 border-indigo-500 text-indigo-900 font-bold">
+               {formatEmojiContent(data.threadsPost?.cta)}
+            </div>
+            <div className="mt-4 text-xs text-stone-400">{data.threadsPost?.tags}</div>
          </div>
       </div>
 
-      {/* Main Blog Body */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="bg-slate-100 px-4 sm:px-5 py-3 border-b border-slate-200 flex justify-between items-center">
-          <h3 className="font-bold text-slate-700 text-sm sm:text-base flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>
-            部落格/方格子文章
-          </h3>
-          <button onClick={() => copyToClipboard((data.content?.markdownBody || "") + "\n\n" + (data.content?.callToAction || ""), 'body')} className="text-xs font-semibold bg-white border border-slate-300 hover:border-rose-500 hover:text-rose-600 px-3 py-1.5 rounded transition-colors flex items-center gap-1">
-            {copiedSection === 'body' ? '已複製' : '複製全文明細'}
+      {/* 3. IG 引流視覺套餐 */}
+      <div className="bg-white border border-purple-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-rose-400 px-5 py-3 text-white flex justify-between items-center">
+              <span className="font-black text-sm tracking-widest uppercase">Instagram 引流全套餐</span>
+              <button onClick={() => copyToClipboard(data.content?.instagramCaption || '', 'ig_full')} className="text-xs font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full transition-colors">
+                 {copiedSection === 'ig_full' ? '已複製文案' : '複製引流文案'}
+              </button>
+          </div>
+          <div className="p-6 grid md:grid-cols-2 gap-8">
+              {/* 文字文案區 */}
+              <div className="space-y-4">
+                  <div>
+                      <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest block mb-2">爆款導流文案</span>
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          {formatEmojiContent(data.content?.instagramCaption || '')}
+                      </div>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                      <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest block mb-2">視覺核心金句</span>
+                      <p className="text-lg font-black text-slate-800 italic leading-snug">"{data.content?.instagramQuote}"</p>
+                  </div>
+              </div>
+
+              {/* 圖片提示詞區 */}
+              <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">引流視覺指令 (流量入口)</span>
+                    <div className="flex gap-2">
+                        <span className="bg-green-100 text-green-700 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter">SEO Optimized Prompt</span>
+                    </div>
+                  </div>
+                  
+                  <div className="group relative bg-white p-4 rounded-2xl border-2 border-purple-100 shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                          <span className="text-xs font-bold text-purple-700 flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
+                            金句引流圖 (Feed)
+                          </span>
+                          <span className="text-[10px] font-black bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">1:1 SQUARE</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mb-3 line-clamp-3 italic leading-relaxed">{data.visualInstructions?.quoteImagePrompt}</p>
+                      <button onClick={() => copyToClipboard(data.visualInstructions?.quoteImagePrompt || '', 'ig_sq')} className="w-full py-2 bg-purple-600 text-white rounded-lg text-[11px] font-bold hover:bg-purple-700 transition-all shadow-md">
+                          {copiedSection === 'ig_sq' ? '已複製' : '複製 1:1 提示詞'}
+                      </button>
+                      <div className="mt-3 text-[9px] text-purple-400 font-bold bg-purple-50 p-2 rounded">💡 建議：生成的圖片底部已預留空間，可手動加上「閱讀更多請見 Bio 連結」字樣。</div>
+                  </div>
+
+                  <div className="group relative bg-white p-4 rounded-2xl border-2 border-pink-100 shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                          <span className="text-xs font-bold text-pink-700 flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+                            氛圍限動 (Story)
+                          </span>
+                          <span className="text-[10px] font-black bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded">9:16 VERTICAL</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mb-3 line-clamp-3 italic leading-relaxed">{data.visualInstructions?.storyImagePrompt}</p>
+                      <button onClick={() => copyToClipboard(data.visualInstructions?.storyImagePrompt || '', 'ig_st')} className="w-full py-2 bg-pink-600 text-white rounded-lg text-[11px] font-bold hover:bg-pink-700 transition-all shadow-md">
+                          {copiedSection === 'ig_st' ? '已複製' : '複製 9:16 提示詞'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      {/* 4. 部落格深度正文 */}
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-slate-50 px-5 py-4 border-b border-slate-200 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+             <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
+             <h3 className="font-bold text-slate-700">深度內容 (適合：方格子 / Medium / 自站)</h3>
+          </div>
+          <button onClick={() => copyToClipboard(data.content?.markdownBody || '', 'main_body')} className="px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold hover:bg-indigo-100 transition-colors">
+             {copiedSection === 'main_body' ? '✓ 複製成功' : '一鍵複製全文'}
           </button>
         </div>
-        <div className="p-4 sm:p-6">
-          <div className="prose prose-slate max-w-none text-slate-700 font-chinese whitespace-pre-wrap leading-relaxed text-sm sm:text-base">
-            {renderWithLinksAndEmoji(data.content?.markdownBody || "")}
+        <div className="p-8 prose prose-slate max-w-none">
+          <div className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap text-slate-700 font-chinese">
+             {renderWithLinksAndEmoji(data.content?.markdownBody)}
           </div>
-          <div className="mt-8 pt-6 border-t border-slate-100">
-             <div className="bg-rose-50 p-4 rounded-lg border border-rose-100">
-                <span className="block text-xs font-bold text-rose-400 uppercase tracking-wider mb-2">🚀 行動呼籲 (CTA)</span>
-                <p className="text-rose-600 font-bold text-sm sm:text-base">{formatEmojiContent(data.content?.callToAction || "")}</p>
-             </div>
+          <div className="mt-10 p-6 bg-gradient-to-br from-indigo-50 to-white rounded-2xl border border-indigo-100 shadow-inner">
+             <span className="block text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-widest">Call to Action (行動號召)</span>
+             <p className="text-indigo-900 font-bold text-lg">{formatEmojiContent(data.content?.callToAction || '')}</p>
           </div>
         </div>
       </div>
 
-      {/* Operating Suggestions */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 sm:p-5">
-        <h3 className="text-amber-900 font-bold mb-4 flex items-center gap-2 text-sm sm:text-base">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.3 1.047a1 1 0 01.974 0l7 4.5A1 1 0 0119 6.388v8.225a1 1 0 01-.726.96l-7 2.25a1 1 0 01-.548 0l-7-2.25A1 1 0 013 14.613V6.388a1 1 0 01.726-.96l7-4.381zM10 3.033L4.606 6.406 10 9.873l5.394-3.467L10 3.033zM4 8.259v5.233l5 1.607v-5.233l-5-1.607zm12 0l-5 1.607v5.233l5-1.607V8.259z" clipRule="evenodd" /></svg>
-          社群經營指南 (Growth Strategy)
-        </h3>
-        <div className="grid sm:grid-cols-3 gap-4">
-            <div className="bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
-                <span className="text-xs font-bold text-amber-600 uppercase mb-2 block">方格子專題建議</span>
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{suggestions.vocusCollection}</p>
-            </div>
-            <div className="bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
-                <span className="text-xs font-bold text-amber-600 uppercase mb-2 block">社群互動問題</span>
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{suggestions.interactionQuestion}</p>
-            </div>
-            <div className="bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
-                <span className="text-xs font-bold text-amber-600 uppercase mb-2 block">跨平台導流技巧</span>
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{suggestions.crossPromotionTip}</p>
-            </div>
-        </div>
-      </div>
-
-      {/* Visual Instructions */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5">
-        <h3 className="text-slate-800 font-bold mb-4 flex items-center gap-2 text-sm sm:text-base">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-rose-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
-          視覺指令與 AI 提示詞
-        </h3>
-        <div className="space-y-4">
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-             <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-bold text-slate-500">IG 貼文背景提示詞 (4:5)</span>
-                <button onClick={() => copyToClipboard(visual.quoteImagePrompt || '', 'quote_prompt')} className="text-xs text-indigo-600 font-bold hover:underline">複製</button>
-             </div>
-             <p className="text-xs text-slate-600">{visual.quoteImagePrompt}</p>
+      {/* 5. 經營策略 */}
+      <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6 shadow-sm">
+          <h3 className="text-amber-900 font-bold mb-5 text-sm flex items-center gap-2 uppercase tracking-widest">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+            Growth Strategy 經營策略
+          </h3>
+          <div className="grid sm:grid-cols-2 gap-6">
+              <div className="bg-white p-4 rounded-xl border border-amber-100 shadow-sm group hover:border-amber-400 transition-colors">
+                  <span className="text-[10px] font-bold text-amber-500 block mb-2 uppercase">留言互動導引</span>
+                  <p className="text-xs text-slate-600 italic leading-relaxed">"{data.operatingSuggestions?.interactionQuestion}"</p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-amber-100 shadow-sm group hover:border-amber-400 transition-colors">
+                  <span className="text-[10px] font-bold text-amber-600 block mb-2 uppercase">多平台導流小撇步</span>
+                  <p className="text-xs text-slate-700 leading-relaxed">{data.operatingSuggestions?.crossPromotionTip}</p>
+              </div>
           </div>
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-             <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-bold text-slate-500">IG 限動視覺提示詞 (9:16)</span>
-                <button onClick={() => copyToClipboard(visual.storyImagePrompt || '', 'story_prompt')} className="text-xs text-indigo-600 font-bold hover:underline">複製</button>
-             </div>
-             <p className="text-xs text-slate-600">{visual.storyImagePrompt}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Instagram Caption */}
-      <div className="bg-white border border-purple-100 rounded-xl overflow-hidden shadow-sm">
-         <div className="bg-purple-50 px-4 py-3 border-b border-purple-100 flex justify-between items-center">
-             <h3 className="font-bold text-purple-900 text-sm sm:text-base flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" /></svg>
-                Instagram 貼文文案
-             </h3>
-             <button onClick={() => copyToClipboard(data.content?.instagramCaption || '', 'ig_caption')} className="text-xs font-semibold bg-white border border-purple-200 hover:border-purple-400 hover:text-purple-700 px-3 py-1.5 rounded transition-colors">
-                {copiedSection === 'ig_caption' ? '已複製!' : '複製文案'}
-             </button>
-         </div>
-         <div className="p-4 sm:p-6">
-             <div className="text-sm sm:text-base text-slate-700 whitespace-pre-wrap leading-relaxed font-chinese">
-                {renderWithLinksAndEmoji(data.content?.instagramCaption || "")}
-             </div>
-         </div>
       </div>
     </div>
   );

@@ -100,11 +100,8 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
   };
 
   const handleClear = () => {
+    // 優化：僅清空輸入框文字與緩存，保留搜尋狀態與結果
     setText("");
-    setManualSearchTerm("");
-    setNewsResults([]);
-    setGroundingSources([]);
-    setSearchTopic("");
     localStorage.removeItem('current_draft');
     
     setShowClearedToast(true);
@@ -172,7 +169,10 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
       {/* Render news results if search is complete */}
       {!isSearching && newsResults.length > 0 && (
         <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-stone-100 max-h-64 overflow-y-auto custom-scrollbar">
-          <h3 className="text-xs font-bold text-stone-400 uppercase mb-3 px-2 tracking-widest">搜尋到的素材結果</h3>
+          <div className="flex justify-between items-center mb-3 px-2">
+            <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest">搜尋到的素材結果</h3>
+            <span className="text-[10px] text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded">對象：{searchTopic}</span>
+          </div>
           <div className="space-y-3">
             {newsResults.map((item, idx) => (
               <div key={idx} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm hover:border-indigo-300 transition-colors group">
@@ -188,7 +188,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
                   <button 
                     onClick={() => handleSelectNews(item)}
                     className="shrink-0 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all active:scale-90"
-                    title="引用新聞素材"
+                    title="引用至輸入框"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                   </button>
@@ -225,7 +225,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
           <div className="flex items-center gap-4">
              {showSavedToast && <span className="text-[10px] text-emerald-500 font-bold animate-pulse">✨ 已自動儲存</span>}
              {showClearedToast && <span className="text-[10px] text-rose-500 font-bold">🗑️ 已清空內容</span>}
-             <button onClick={handleClear} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors">清空內容</button>
+             <button onClick={handleClear} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors">僅清空輸入框</button>
           </div>
         </div>
         <textarea 
@@ -278,5 +278,4 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isLoading, initialTex
   );
 };
 
-// Fix the error: Module has no default export
 export default InputArea;
